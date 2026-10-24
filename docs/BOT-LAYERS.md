@@ -5,9 +5,10 @@ Purpose: a checklist of the layers a market trading bot is made of, so that when
 Contents
 1. The layers (what to ask, what to grep for, how it fails)
 2. Reverse-engineering procedure and templates
-3. Case study 1: the prediction-market video
-4. Case study 2: jev-trader (this repo)
-5. Transcript of the video
+3. Using REA (morluto/rea) to fill the table
+4. Case study 1: the prediction-market video
+5. Case study 2: jev-trader (this repo)
+6. Transcript of the video
 
 ---
 
@@ -181,7 +182,56 @@ After 3 or more repos, make one grid: rows are layers, columns are bots, cells a
 
 ---
 
-## 3. Case study 1: the prediction-market video
+## 3. Using REA (morluto/rea) to fill the table
+
+What REA is: "Reverse Engineer Anything", an MCP server and CLI (`npx rea-agents setup`) that lets an agent inspect software it has no source for and return findings with evidence. It is not a collection of bots. It is the tool you point at a bot. Local analysis only. Needs Node 22+.
+
+Read first: `DISCLAIMER.md` in that repo. It excludes circumventing protections, bypassing access controls on systems you are not authorized to test, and copying proprietary code. Use it to learn which layers a bot has and how they are wired, not to clone a product. Possession of a file or a public endpoint is not permission. Check the target's license and terms before running anything.
+
+### When you do not need it
+
+Open-source bot: just read the repo with the procedure in section 2. REA adds nothing over reading source.
+
+### Which REA target answers which layer
+
+| Bot form | REA capability | Layers it exposes |
+|----------|----------------|-------------------|
+| Electron or desktop app bot | JavaScript / Electron analysis: modules, imports, routes, IPC, source maps | 2 ingestion (what endpoints and feeds), 4 signal and 5 policy (if logic runs client side), 6 sizing, 7 risk limits, 8 execution calls, 11 config |
+| Web dashboard or web bot UI | Website analysis (scripts, network observations); HAR/SAZ network captures | 2 ingestion, 8 execution (which APIs, payload shapes), 12 observability (what the UI reports) |
+| Python bot shipped as an executable | PyInstaller analysis: Python version, entry scripts, bytecode | Everything, since the strategy lives in the bytecode. Highest yield and most legally sensitive |
+| Go or Rust binary | Embedded module and crate lists, build settings | 2, 8, 10, 11 from dependencies (which exchange SDKs, signing libs, RPC clients) |
+| Native binary | Hopper, Ghidra or IDA pseudocode, strings, calls | Same as above, much slower |
+| Local state DB | SQLite inspection: tables, columns, rows | 3 state, 9 accounting, 12 logs. Schema shows what the author thought worth persisting |
+| On-chain bot contract | EVM bytecode: selectors, dispatch, mutability | 7 risk (access control, caps), 8 execution (what functions exist) |
+| Android app | APK, ADB | Same as Electron |
+| Traffic between bot and venue | PCAP summaries, packet analysis | 2 ingestion cadence, 8 execution rate and retry behavior |
+
+### What REA cannot show
+
+- Server-side logic. A hosted signal, policy or risk engine behind an API is invisible. All you see is the request and response shape.
+- Edge and results. Code tells you what a bot does, never whether it makes money.
+- For on-chain bots, the best ground truth is not REA. It is the wallet's transaction history: order cadence, size distribution, cancel/replace ratio, gas paid per order, inventory over time. Read that with an explorer or logs, then use REA only to explain why.
+
+### Workflow per target
+
+1. Pick the form from the table. Note the authorization basis in one line (own software, open source, permissive license, public interop, research scope).
+2. Run the matching REA analysis. Save the evidence output.
+3. Fill the layer table from evidence. Mark each cell `seen`, `inferred` or `absent`. Do not let `inferred` pass as `seen`.
+4. Cross-check against observable behavior (wallet history, UI output, README claims). Disagreements are the interesting findings.
+5. Write the verdict block. Keep patterns and ideas; do not carry over code, assets or proprietary logic.
+
+### Layer table with provenance (use instead of the plain table when working from REA)
+
+| # | Layer | Evidence | Confidence (seen / inferred / absent) | Source (REA tool, file, wallet tx) |
+|---|-------|----------|----------------------------------------|-------------------------------------|
+
+### Setup note
+
+`npx rea-agents setup` edits your agent configs (with backups, after approval). I have only cloned and read the repo here; I have not installed or run it. The terminal route needs no setup: `npx -y rea-agents@latest analyze-javascript-application /abs/path/to/app --json`. Most real work needs Hopper, Ghidra or IDA on your machine, which this cloud session does not have. Run REA locally and bring the evidence output here for me to turn into layer tables.
+
+---
+
+## 4. Case study 1: the prediction-market video
 
 Source: https://youtu.be/shZwbIRtObE (YouTube Short, 1:09, Ray Fu, 2026-05-02). Read from the auto transcript and page metadata; visuals not seen.
 
@@ -203,7 +253,7 @@ Fit to jev-trader: stages 1, 2 and 3 conflict with the CLAUDE.md non-negotiables
 
 ---
 
-## 4. Case study 2: jev-trader (this repo)
+## 5. Case study 2: jev-trader (this repo)
 
 Mapped from file headers and the README; line numbers not yet verified. Treat "where" as pointers to read next.
 
@@ -229,7 +279,7 @@ Gaps worth closing first: a persisted per-block log (12 and 14 both depend on it
 
 ---
 
-## 5. Transcript of the video (verbatim)
+## 6. Transcript of the video (verbatim)
 
 > I wish someone told me this sooner, but you can actually use a cloud skill to build out prediction market bots that can make you $1,500 a day. And Tropic recently released a 33-page cheat sheet for building out cloud skills. But hidden within it is a prediction market trading bot that has a win rate of 68.4%. Here's how it works in five steps so you can build it out yourself.
 >
